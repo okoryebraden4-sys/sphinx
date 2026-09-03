@@ -1659,7 +1659,7 @@ static SphAttr_t GetDistinctKey ( const CSphMatch & tEntry, const CSphAttrLocato
 	{
 		const BYTE * pStr = NULL;
 		int iLen = sphUnpackStr ( pStringBase+tRes, &pStr );
-		tRes = pStr && iLen ? sphFNV64 ( pStr, iLen ) : 0;					
+		tRes = pStr && iLen ? sphFNV64 ( pStr, iLen ) : 0;
 	}
 
 	return tRes;
@@ -5042,7 +5042,7 @@ ISphMatchSorter * sphCreateQueue ( SphQueueSettings_t & tQueue )
 			ESphAttr eAttr = tSchema.GetAttr ( iAttrIdx ).m_eAttrType;
 			if ( eAttr==SPH_ATTR_STRING || eAttr==SPH_ATTR_UINT32SET || eAttr==SPH_ATTR_INT64SET )
 			{
-				if ( tItem.m_eAggrFunc!=SPH_AGGR_NONE )
+				if ( tItem.m_eAggrFunc!=SPH_AGGR_NONE && tItem.m_eAggrFunc!=SPH_AGGR_CAT)
 				{
 					sError.SetSprintf ( "can not aggregate non-scalar attribute '%s'", tItem.m_sExpr.cstr() );
 					return NULL;

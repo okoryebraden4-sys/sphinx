@@ -343,7 +343,7 @@ public:
 
 	virtual int IntEval ( const CSphMatch & tMatch ) const
 	{
-		const BYTE * pStr;		
+		const BYTE * pStr;
 		return m_pArg->StringEval ( tMatch, &pStr );
 	}
 
@@ -872,7 +872,6 @@ public:
 		ESphJsonType eJson = JSON_NULL;
 		DWORD uOff = 0;
 		int iLen = 0;
-
 		switch ( m_eArg )
 		{
 			case SPH_ATTR_INTEGER:	m_sBuilder.Appendf ( "%u", m_pFirst->IntEval ( tMatch ) ); break;
@@ -908,6 +907,12 @@ public:
 					}
 				}
 				break;
+			case SPH_ATTR_STRING:
+				{
+					int iLen = m_pFirst->StringEval ( tMatch, ppStr );
+					m_sBuilder.Appendf ( "%.*s", iLen, *ppStr);
+					break;
+				}
 			case SPH_ATTR_STRINGPTR:
 				return m_pFirst->StringEval ( tMatch, ppStr );
 
@@ -1010,7 +1015,6 @@ public:
 	{
 		int iLen;
 		const BYTE * pStr;
-
 		ARRAY_FOREACH ( i, m_dRetTypes )
 		{
 			switch ( m_dRetTypes[i] )
@@ -1195,6 +1199,11 @@ public:
 	}
 
 protected:
+	virtual int JsonType (const CSphMatch &tMatch, const BYTE ** ppStr) const
+	{
+		return GetKey ( ppStr, tMatch );
+	}
+
 	virtual ESphJsonType GetKey ( const BYTE ** ppKey, const CSphMatch & tMatch ) const
 	{
 		assert ( ppKey );
@@ -2211,6 +2220,7 @@ enum Func_e
 	FUNC_MUL3,
 
 	FUNC_INTERVAL,
+	FUNC_RANGE,
 	FUNC_IN,
 	FUNC_BITDOT,
 	FUNC_REMAP,
@@ -2298,6 +2308,7 @@ static FuncDesc_t g_dFuncs[] =
 	{ "mul3",			3,	FUNC_MUL3,			SPH_ATTR_NONE },
 
 	{ "interval",		-2,	FUNC_INTERVAL,		SPH_ATTR_INTEGER },
+	{ "range",			3,	FUNC_RANGE,			SPH_ATTR_INTEGER },
 	{ "in",				-1, FUNC_IN,			SPH_ATTR_INTEGER },
 	{ "bitdot",			-1, FUNC_BITDOT,		SPH_ATTR_NONE },
 	{ "remap",			4,	FUNC_REMAP,			SPH_ATTR_INTEGER },
@@ -2378,32 +2389,32 @@ static int FuncHashLookup ( const char * sKey )
 
 	static BYTE dAsso[] =
 	{
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		0, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 60, 109, 25, 25, 0,
-		25, 15, 30, 10, 60, 10, 109, 109, 5, 0,
-		10, 25, 25, 25, 0, 55, 0, 0, 109, 15,
-		60, 20, 0, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109, 109, 109, 109, 109,
-		109, 109, 109, 109, 109, 109
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+       20, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134,  55, 134,  25,  45,   0,
+       20,  15,  25,  20,  30,  10, 134, 134,   5,   0,
+       10,  30,  50,   5,   0,  45,   0,   0, 134,  15,
+       65,  35,   0, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134, 134, 134, 134, 134,
+      134, 134, 134, 134, 134, 134
 	};
 
 	const BYTE * s = (const BYTE*) sKey;
@@ -2417,17 +2428,20 @@ static int FuncHashLookup ( const char * sKey )
 
 	static int dIndexes[] =
 	{
-		-1, -1, -1, -1, -1, 13, -1, 51, 52, 29,
-		-1, -1, 55, 53, -1, -1, -1, 6, 54, -1,
-		33, -1, 31, 23, 50, -1, 21, 45, 30, 2,
-		44, -1, -1, 49, 60, 61, 47, -1, 57, 63,
-		16, 32, 27, 38, 7, 8, 41, 39, 56, 26,
-		48, 11, 59, 0, 28, 62, 46, 34, 58, 37,
-		-1, 36, 43, 42, 17, 3, -1, -1, 25, 18,
-		-1, -1, 19, 15, 14, -1, 22, -1, 4, 12,
-		-1, -1, -1, 5, 10, -1, -1, -1, 24, 20,
-		35, -1, -1, -1, 40, -1, -1, -1, -1, -1,
-		-1, -1, -1, 9, -1, -1, -1, -1, 1
+		-1, -1, -1, -1, -1, 13, -1, 52, 53, 29,
+		-1, -1, 56, 54, -1, -1, -1, 6, 55, -1,
+		34, -1, 32, 23, 51, -1, 21, 46, 30, 2,
+		-1, -1, -1, -1, 61, 62, 48, 27, 58, 64,
+		31, -1, -1, 50, 26, 16, 42, 60, 39, 28,
+		49, -1, 40, 57, 10, 63, 47, 44, 0, 7,
+		8, 33, -1, -1, 20, 3, 22, -1, 4, 12,
+		45, -1, 35, 59, 38, -1, -1, -1, 5, 17,
+		-1, 11, -1, 15, 18, -1, -1, 19, 43, 14,
+		-1, 37, -1, 24, 41, 36, -1, -1, 25, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, 1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, 9
 	};
 
 	if ( iHash<0 || iHash>=(int)(sizeof(dIndexes)/sizeof(dIndexes[0])) )
@@ -2684,6 +2698,7 @@ private:
 
 	ISphExpr *				CreateTree ( int iNode );
 	ISphExpr *				CreateIntervalNode ( int iArgsNode, CSphVector<ISphExpr *> & dArgs );
+	ISphExpr *				CreateRangeNode (int iArgsNode, CSphVector<ISphExpr *> & dArgs);
 	ISphExpr *				CreateInNode ( int iNode );
 	ISphExpr *				CreateLengthNode ( const ExprNode_t & tNode, ISphExpr * pLeft );
 	ISphExpr *				CreateGeodistNode ( int iArgs );
@@ -3442,7 +3457,7 @@ protected:
 	mutable CSphVector<int64_t>		m_dArgvals;
 	mutable char					m_bError;
 	CSphQueryProfile *				m_pProfiler;
-	const BYTE *					m_pStrings;						
+	const BYTE *					m_pStrings;
 
 public:
 	explicit Expr_Udf_c ( UdfCall_t * pCall, CSphQueryProfile * pProfiler )
@@ -4375,6 +4390,7 @@ ISphExpr * ExprParser_t::CreateTree ( int iNode )
 	// avoid spawning argument node in some cases
 	bool bSkipLeft = false;
 	bool bSkipRight = false;
+
 	if ( tNode.m_iToken==TOK_FUNC )
 	{
 		switch ( tNode.m_iFunc )
@@ -4570,6 +4586,7 @@ ISphExpr * ExprParser_t::CreateTree ( int iNode )
 					case FUNC_GEODIST:	return CreateGeodistNode ( tNode.m_iLeft );
 					case FUNC_EXIST:	return CreateExistNode ( tNode );
 					case FUNC_CONTAINS:	return CreateContainsNode ( tNode );
+					case FUNC_RANGE:	return CreateRangeNode ( tNode.m_iLeft, dArgs );
 
 					case FUNC_POLY2D:
 					case FUNC_GEOPOLY2D:break; // just make gcc happy
@@ -4682,7 +4699,6 @@ ISphExpr * ExprParser_t::CreateTree ( int iNode )
 				return new Expr_JsonFieldConv_c ( new Expr_Iterator_c ( tNode.m_tLocator, tNode.m_iLocator, dArgs, dTypes, tNode.m_pAttr ) );
 			}
 		case TOK_IDENT:			m_sCreateError.SetSprintf ( "unknown column: %s", tNode.m_sIdent ); break;
-
 		case TOK_IS_NULL:
 		case TOK_IS_NOT_NULL:
 			if ( m_dNodes[tNode.m_iLeft].m_eRetType==SPH_ATTR_JSON_FIELD )
@@ -4836,7 +4852,7 @@ public:
 
 	virtual uint64_t GetHash ( const ISphSchema & tSorterSchema, uint64_t uPrevHash, bool & bDisable )
 	{
-		EXPR_CLASS_NAME("Expr_IntervalConst_c");		
+		EXPR_CLASS_NAME("Expr_IntervalConst_c");
 		return Expr_ArgVsConstSet_c<T>::CalcHash ( szClassName, tSorterSchema, uHash, bDisable );		// can't do CALC_PARENT_HASH because of gcc and templates
 	}
 };
@@ -4883,25 +4899,190 @@ public:
 	}
 };
 
+/// generic RANGE() evaluator
+template < typename T >
+class Expr_Range_c : public Expr_ArgVsConstSet_c<T>
+{
+
+public:
+	/// take ownership of arg, pre-evaluate and dismiss turn points
+	explicit Expr_Range_c ( CSphVector<ISphExpr *> & dArgs )
+		: Expr_ArgVsConstSet_c<T> ( dArgs[0], dArgs, 1 )
+	{}
+
+	/// evaluate arg, return range value
+	virtual int IntEval ( const CSphMatch & tMatch ) const
+	{
+		const BYTE *pVal;
+		const T iMin = this->m_dValues[0];
+		const T iMax = this->m_dValues[1];
+		int iJsonType = this->m_pArg->JsonType ( tMatch, &pVal);
+
+		if ( iJsonType == JSON_INT32_VECTOR ||
+			 iJsonType == JSON_INT64_VECTOR ||
+			 iJsonType == JSON_DOUBLE_VECTOR )
+		{
+			int iLen = sphJsonUnpackInt ( &pVal );
+			const T * pArray = (const T *)pVal;
+			const T * pArrayMax = pArray + iLen;
+			for ( const T * m = pArray; m<pArrayMax; m++ )
+			{
+				if ( *m >= iMin &&  *m  <= iMax )
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+		else {
+			T val = this->ExprEval ( this->m_pArg, tMatch );
+			if ( val >= iMin &&  val  <= iMax )
+			{
+				return true;
+			}
+			return false;
+		}
+	}
+
+	virtual uint64_t GetHash ( const ISphSchema & tSorterSchema, uint64_t uPrevHash, bool & bDisable )
+	{
+		EXPR_CLASS_NAME("Expr_Range_c");
+		return Expr_ArgVsConstSet_c<T>::CalcHash ( szClassName, tSorterSchema, uHash, bDisable );		// can't do CALC_PARENT_HASH because of gcc and templates
+	}
+};
+
 //////////////////////////////////////////////////////////////////////////
 
 /// IN() evaluator, arbitrary scalar expression vs. constant values
 template < typename T >
 class Expr_In_c : public Expr_ArgVsConstSet_c<T>
 {
+protected:
+	CSphVector<int64_t>	m_dHashes;
 public:
 	/// pre-sort values for binary search
 	Expr_In_c ( ISphExpr * pArg, ConstList_c * pConsts ) :
 		Expr_ArgVsConstSet_c<T> ( pArg, pConsts )
 	{
 		this->m_dValues.Sort();
+
+		const char * sExpr = pConsts->m_sExpr.cstr();
+		int iExprLen = pConsts->m_sExpr.Length();
+
+		const int64_t * pFilter = (const int64_t *)this->m_dValues.Begin();
+		const int64_t * pFilterMax = pFilter + this->m_dValues.GetLength();
+
+		for ( const int64_t * pCur=pFilter; pCur<pFilterMax; pCur++ )
+		{
+			int64_t iVal = *pCur;
+			int iOfs = (int)( iVal>>32 );
+			int iLen = (int)( iVal & 0xffffffffUL );
+			if ( iOfs > 0 && iLen > 0 && iOfs < iExprLen && iLen < iExprLen && (iExprLen - iOfs) >= iLen )
+			{
+				CSphString sRes;
+				SqlUnescape ( sRes, sExpr + iOfs, iLen );
+				m_dHashes.Add (sphFNV64 ( sRes.cstr(), sRes.Length() ));
+			}
+			else
+			{
+				break;
+			}
+		}
+		m_dHashes.Sort();
 	}
 
 	/// evaluate arg, check if the value is within set
 	virtual int IntEval ( const CSphMatch & tMatch ) const
 	{
-		T val = this->ExprEval ( this->m_pArg, tMatch ); // 'this' fixes gcc braindamage
-		return this->m_dValues.BinarySearch ( val )!=NULL;
+		const BYTE *pVal;
+		int iJsonType = this->m_pArg->JsonType ( tMatch, &pVal );
+		if ( iJsonType == JSON_STRING_VECTOR )
+		{
+			int iTotal = m_dHashes.GetLength();
+			sphJsonUnpackInt ( &pVal );
+			int iCount = sphJsonUnpackInt ( &pVal );
+			while ( iCount-- )
+			{
+				int iLen = sphJsonUnpackInt ( &pVal );
+				if (m_dHashes.BinarySearch ( sphFNV64 ( pVal, iLen ) ) )
+				{
+					if (--iTotal == 0)
+						return true;
+				}
+				pVal += iLen;
+			}
+			return false;
+		}
+		else if ( iJsonType == JSON_INT32_VECTOR ||
+				  iJsonType == JSON_INT64_VECTOR ||
+				  iJsonType == JSON_DOUBLE_VECTOR)
+		{
+			int iTotal = this->m_dValues.GetLength();
+			int iLen = sphJsonUnpackInt ( &pVal );
+			const T * pArray = (const T *)pVal;
+			const T * pArrayMax = pArray + iLen;
+			for ( const T * m = pArray; m<pArrayMax; m++ )
+			{
+				if (this->m_dValues.BinarySearch ( (int64_t)*m ) )
+				{
+					if (--iTotal == 0)
+						return true;
+				}
+			}
+			return false;
+		}
+		else if ( iJsonType == JSON_MIXED_VECTOR )
+		{
+			int iTotal = this->m_dValues.GetLength();
+			const BYTE * p = pVal;
+			sphJsonUnpackInt ( &p ); // skip node length
+			int iLen = sphJsonUnpackInt ( &p );
+			for ( int i=0; i<iLen; i++ )
+			{
+				ESphJsonType eType = (ESphJsonType)*p++;
+				pVal = p;
+				int64_t iRes = 0;
+				switch (eType)
+				{
+					case JSON_INT32:
+						iRes = (int64_t) sphJsonLoadInt ( &pVal );
+						break;
+					case JSON_INT64:
+						iRes = sphJsonLoadBigint ( &pVal );
+						break;
+					case JSON_DOUBLE:
+						iRes = (int64_t)sphQW2D ( sphJsonLoadBigint ( &pVal ) );
+						break;
+					default:
+						sphJsonSkipNode ( eType, &p );
+						continue;
+						break;
+				}
+
+				if ( this->m_dValues.BinarySearch (iRes ) )
+				{
+					if (--iTotal == 0)
+						return true;
+				}
+				sphJsonSkipNode ( eType, &p );
+			}
+			return false;
+		}
+		else if ( iJsonType == JSON_STRING )
+		{
+			int iLen = sphJsonUnpackInt ( &pVal );
+			uint64_t fnv64 = sphFNV64 ( pVal, iLen );
+			if (m_dHashes.BinarySearch ( fnv64 ) )
+			{
+				return true;
+			}
+			return false;
+		}
+		else
+		{
+			T val = this->ExprEval ( this->m_pArg, tMatch ); // 'this' fixes gcc braindamage
+			return this->m_dValues.BinarySearch (val ) != NULL;
+		}
 	}
 
 	virtual uint64_t GetHash ( const ISphSchema & tSorterSchema, uint64_t uPrevHash, bool & bDisable )
@@ -5246,11 +5427,15 @@ public:
 			int64_t iVal = *pCur;
 			int iOfs = (int)( iVal>>32 );
 			int iLen = (int)( iVal & 0xffffffffUL );
-			if ( iOfs>0 && iOfs+iLen<=iExprLen )
+			if ( iOfs > 0 && iLen > 0 && iOfs < iExprLen && iLen < iExprLen && (iExprLen - iOfs) >= iLen )
 			{
 				CSphString sRes;
 				SqlUnescape ( sRes, sExpr + iOfs, iLen );
 				m_dHashes.Add ( sphFNV64 ( sRes.cstr(), sRes.Length() ) );
+			}
+			else
+			{
+				break;
 			}
 		}
 
@@ -5375,8 +5560,9 @@ protected:
 		while ( iCount-- )
 		{
 			int iLen = sphJsonUnpackInt ( &pVal );
-			if ( m_dHashes.BinarySearch ( sphFNV64 ( pVal, iLen ) ) )
+			if ( m_dHashes.BinarySearch ( sphFNV64 ( pVal, iLen ) ) ){
 				return 1;
+			}
 			pVal += iLen;
 		}
 		return 0;
@@ -5415,11 +5601,15 @@ public:
 			int64_t iVal = *pCur;
 			int iOfs = (int)( iVal>>32 );
 			int iLen = (int)( iVal & 0xffffffffUL );
-			if ( iOfs>0 && iOfs+iLen<=iExprLen )
+			if ( iOfs > 0 && iLen > 0 && iOfs < iExprLen && iLen < iExprLen && (iExprLen - iOfs) >= iLen )
 			{
 				CSphString sRes;
 				SqlUnescape ( sRes, sExpr + iOfs, iLen );
 				m_dStringValues.Add ( sRes );
+			}
+			else
+			{
+				break;
 			}
 		}
 
@@ -5887,6 +6077,22 @@ ISphExpr * ExprParser_t::CreateIntervalNode ( int iArgsNode, CSphVector<ISphExpr
 #endif
 }
 
+ISphExpr * ExprParser_t::CreateRangeNode (int iArgsNode, CSphVector<ISphExpr *> & dArgs)
+{
+	assert ( dArgs.GetLength()>=2 );
+
+	CSphVector<ESphAttr> dTypes;
+	GatherArgRetTypes ( iArgsNode, dTypes );
+
+	ESphAttr eAttrType = m_dNodes[iArgsNode].m_eArgType;
+	switch ( eAttrType )
+	{
+		case SPH_ATTR_INTEGER:	return new Expr_Range_c<int> ( dArgs ); break;
+		case SPH_ATTR_BIGINT:	return new Expr_Range_c<int64_t> ( dArgs ); break;
+		default:				return new Expr_Range_c<float> ( dArgs ); break;
+	}
+}
+
 
 ISphExpr * ExprParser_t::CreateInNode ( int iNode )
 {
@@ -6087,7 +6293,7 @@ ISphExpr * ExprParser_t::CreatePFNode ( int iArg )
 	{
 		assert ( m_dNodes[dArgs[0]].m_eRetType==SPH_ATTR_MAPARG );
 		CSphVector<CSphNamedVariant> & dOpts = m_dNodes[dArgs[0]].m_pMapArg->m_dPairs;
-	
+
 		ARRAY_FOREACH ( i, dOpts )
 		{
 			if ( dOpts[i].m_sKey=="no_atc" && dOpts[i].m_iValue>0)
@@ -6167,7 +6373,6 @@ ISphExpr * ExprParser_t::CreateForInNode ( int iNode )
 
 	FixupIterators ( iExprNode, m_dNodes[iNameNode].m_sIdent, pFunc->GetRef() );
 	pFunc->SetExpr ( CreateTree ( iExprNode ) );
-
 	return pFunc;
 }
 
@@ -6397,7 +6602,6 @@ int ExprParser_t::AddNodeFunc ( int iFunc, int iFirst, int iSecond, int iThird, 
 	Func_e eFunc = (Func_e)iFunc;
 	assert ( g_dFuncs [ iFunc ].m_eFunc==eFunc );
 	const char * sFuncName = g_dFuncs [ iFunc ].m_sName;
-
 	// check args count
 	if ( iSecond<0 || eFunc==FUNC_IN )
 	{
@@ -6442,7 +6646,7 @@ int ExprParser_t::AddNodeFunc ( int iFunc, int iFirst, int iSecond, int iThird, 
 			bGotMva |= ( dRetTypes[i]==SPH_ATTR_UINT32SET || dRetTypes[i]==SPH_ATTR_INT64SET );
 		}
 	}
-	if ( bGotString && !( eFunc==FUNC_CRC32 || eFunc==FUNC_EXIST || eFunc==FUNC_POLY2D || eFunc==FUNC_GEOPOLY2D ) )
+	if ( bGotString && !( eFunc==FUNC_TO_STRING || eFunc==FUNC_CRC32 || eFunc==FUNC_EXIST || eFunc==FUNC_POLY2D || eFunc==FUNC_GEOPOLY2D ) )
 	{
 		m_sParserError.SetSprintf ( "%s() arguments can not be string", sFuncName );
 		return -1;
@@ -6512,6 +6716,17 @@ int ExprParser_t::AddNodeFunc ( int iFunc, int iFirst, int iSecond, int iThird, 
 		if ( !IsNumeric ( dRetTypes[1] ) || !IsNumeric ( dRetTypes[2] ) )
 		{
 			m_sParserError.SetSprintf ( "2nd and 3rd CONTAINS() arguments must be numeric" );
+			return -1;
+		}
+	}
+
+	// check that RANGE args are poly, float, float
+	if ( eFunc== FUNC_RANGE )
+	{
+		assert ( dRetTypes.GetLength()==3 );
+		if ( !IsNumeric ( dRetTypes[1] ) || !IsNumeric ( dRetTypes[2] ) )
+		{
+			m_sParserError.SetSprintf ( "2nd and 3rd RANGE() arguments must be numeric" );
 			return -1;
 		}
 	}

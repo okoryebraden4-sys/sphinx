@@ -127,6 +127,9 @@ public:
 	/// check for const type
 	virtual bool IsConst () const { return false; }
 
+	/// check for vector type
+	virtual int JsonType (const CSphMatch &, const BYTE ** ppStr) const { return false; }
+
 	/// get expression hash (for query cache)
 	virtual uint64_t GetHash ( const ISphSchema & tSorterSchema, uint64_t uPrevHash, bool & bDisable ) = 0;
 };
